@@ -1,0 +1,74 @@
+data:
+  raw_file: "data/raw/trajectories-0750am-0805am.txt"
+  processed_dir: "data/processed"
+  min_duration_s: 20.0
+  min_speed_ms: 1.0
+  savgol_window: 51
+  savgol_polyorder: 3
+  split_ratios: [0.6, 0.2, 0.2]
+  split_seed: 42
+
+sensing:
+  noise_gap_sigma: 0.3
+  noise_vrel_sigma: 0.15
+  dropout_rate: 0.02
+  noise_seed: 123
+  jerk_noise_density: 1.0
+
+control:
+  acc:
+    standstill_gap: 5.0
+    time_gap: 1.5
+    horizon: 30
+    dt: 0.1
+    a_min: -3.0
+    a_max: 2.0
+    j_max: 2.5
+    set_speed: 35.0
+    q_gap: 5.0
+    q_speed: 1.0
+    r_accel: 1.0
+    r_jerk: 2.0
+    slack_penalty: 1000.0
+    d_min: 2.0
+  aeb:
+    debounce_cycles: 3
+    warn_hold_s: 0.4
+    ttc_partial: 2.5
+    ttc_full: 1.2
+    decel_full: 5.0
+    partial_brake: -4.0
+    full_brake: -8.0
+    exit_score_frac: 0.8
+    exit_ttc: 3.0
+    exit_hold_cycles: 5
+  supervisor:
+    response_time: 0.5
+    a_max: 2.0
+    b_min: 4.0
+    b_max: 8.0
+    veto_gap_factor: 2.5
+    veto_ttc: 4.0
+
+ml:
+  label_horizon_s: 3.0
+  ttc_threshold: 3.0
+  feature_window_s: 2.0
+  ttc_cap: 10.0
+  lgbm:
+    n_estimators: 300
+    learning_rate: 0.05
+    num_leaves: 31
+    early_stopping_rounds: 20
+    seed: 42
+  conformal:
+    alphas: [0.005, 0.01, 0.02, 0.05]
+
+sim:
+  dt: 0.1
+  actuator_tau: 0.25
+
+eval:
+  stress_decels: [-4.0, -6.0, -8.0]
+  stress_speeds: [25.0]
+  stress_gaps: [20.0, 30.0, 40.0]
