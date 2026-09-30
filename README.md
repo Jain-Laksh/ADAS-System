@@ -1,23 +1,72 @@
 # ADAS Longitudinal Control Stack
 
-A Python-based simulation of an ADAS longitudinal control stack combining an MPC-based Adaptive Cruise Control (ACC) and an ML-triggered Autonomous Emergency Braking (AEB) system. The stack operates on a Kalman-filtered lead vehicle state and includes a rule-based safety supervisor.
+A Python project that replays real highway trajectories through a Kalman-filter tracker, an MPC-based ACC, and a state-machine AEB whose ML trigger is conformally calibrated to a bounded false-activation rate. 
 
-Built with AI assistance in ~1 day for an ADAS Engineer application (Oct 4 deadline).
+Built in one day for the Suzuki ADAS Engineer application.
+
+## Overview
+
+The project covers both ACC (Adaptive Cruise Control) and AEB (Autonomous Emergency Braking), adding a machine learning component for risk prediction alongside mathematical safety supervisors. It operates entirely on a laptop CPU using the public NGSIM dataset (offline log replay).
+
+### Requirements Met
+* **Control System Development:** MPC-based ACC with acceleration/jerk limits and speed-dependent time gaps.
+* **Emergency Braking:** Four-state AEB machine (Monitor, Warn, Partial Brake, Full Brake) with hysteresis and debounce.
+* **Sensing Front End:** Synthetic radar-like noise model with a constant-acceleration Kalman filter tracking the lead vehicle.
+* **ML Component:** LightGBM risk predictor using split-conformal calibration bounding false activations.
+* **Safety Wrapper:** Rule-based RSS-style minimum-distance supervisor that can override or veto the ML model.
+* **Software Engineering:** Modular Python package, PyYAML config, `pytest` coverage, clean and typed minimal code.
 
 ## Architecture
 
-The system runs entirely as an offline log replay, requiring no vehicle hardware or real-time simulation. The stack consists of:
-1. **Kalman Filter**: Tracks the lead vehicle using synthetic noisy radar measurements (range and range rate).
-2. **ACC MPC**: Constrained MPC formulation using `cvxpy` and `OSQP`, providing comfort-bounded acceleration to maintain a speed-dependent time gap.
-3. **ML Risk Predictor**: A LightGBM model trained on historical trajectory sequences predicting a critical event in the next 3 seconds. The trigger threshold is calibrated using split-conformal prediction for a bounded False Activation Rate (FAR).
-4. **AEB FSM**: A 4-state machine (Monitor, Warn, Partial Brake, Full Brake) that initiates hard braking.
-5. **Safety Supervisor**: An RSS-style rule-based minimum safe distance envelope that can force AEB or veto an ML trigger.
-6. **Arbiter**: Selects the strongest deceleration request.
+The system runs entirely as an offline log replay. Every module reads the same Kalman-filtered lead-vehicle state; only the AEB trigger uses the ML model.
 
-## Tech Stack
-* Python 3.11+ (NumPy, pandas, SciPy, cvxpy, lightgbm)
-* Tests: `pytest`
-* Data: NGSIM US-101 (public dataset)
+* **Shared Input:** ACC, the risk model, and the supervisor all read the *filtered* state (synthetic radar noise passed through a Kalman Filter), never the true ground-truth state.
+* **ACC (MPC):** Requests a comfort-limited acceleration (down to -3 m/s²) using `cvxpy` and the `OSQP` solver.
+* **AEB (FSM):** Evaluates risk. If the conformally-calibrated LightGBM model predicts a critical event within 3 seconds, it triggers warnings and then braking (up to -8 m/s²).
+* **Arbitration:** An arbiter applies the lower of the two requests (AEB wins if braking). Upon AEB exit, ACC resumes but is rate-limited by the jerk limit for comfort.
+* **Safety Supervisor:** Uses an RSS (Responsibility-Sensitive Safety) formulation to calculate an absolute minimum safe distance. It can *force* AEB if the gap falls below the kinematic limit, or *veto* an ML trigger if the situation is mathematically safe.
+
+## Results & Observations
+
+The stack was evaluated on over 1,500 real-world leader-follower trajectory pairs from the NGSIM US-101 dataset, splitting vehicles into Train (60%), Calibration (20%), and Test (20%) sets.
+
+### 1. Risk Predictor (ML Model)
+The LightGBM risk predictor was trained on rolling historical windows of the filtered state.
+* **ROC AUC:** 0.917
+* **PR AUC:** 0.376 (Highly imbalanced dataset, ~0.5% positive rate).
+
+![ROC & PR Curves](results/figures/roc_pr.png)
+
+![Reliability](results/figures/reliability.png)
+
+### 2. Conformal Calibration
+To prevent phantom braking, we applied Split-Conformal Prediction. By targeting a strict False Activation Rate (FAR) of **1%** ($\alpha = 0.01$), the system dynamically found a tight trigger threshold of **0.9723**.
+* **Observation:** The empirical FAR securely bounds the target $\alpha$, ensuring the system only triggers AEB when statistical confidence is exceptionally high.
+
+![Conformal Coverage](results/figures/conformal.png)
+
+### 3. Closed-Loop Performance (ACC + AEB)
+During closed-loop stress scenarios (aggressive cut-ins and hard lead-vehicle braking):
+* **MPC Latency:** Mean compute time per cycle was **23.7 ms** (95th percentile: **25.1 ms**), easily meeting the 100 ms (10 Hz) real-time requirement on a standard laptop CPU.
+
+![Trace](results/figures/trace.png)
+
+![Latency](results/figures/latency.png)
+
+### 4. Ablation Studies
+Running the stack across 9 severe stress scenarios yielded the following metrics (measuring total collision frames and the mean minimum gap across the scenarios):
+
+| Mode | Collision Frames | Mean Min Gap (m) |
+| --- | --- | --- |
+| **Full Stack** | **69** | **1.92** |
+| No Supervisor Force | 73 | 2.31 |
+| No Supervisor Veto | 69 | 1.92 |
+| TTC Trigger Only (No ML) | 141 | -12.93 |
+| No AEB (ACC Only) | 141 | -12.93 |
+
+**Observations:**
+1. **AEB vs. No AEB:** Relying solely on the comfort-tuned ACC in emergency scenarios leads to severe crashes (min gap of -12.9m, 141 collision frames). The full stack cuts collisions in half and raises the worst-case boundary.
+2. **ML + Supervisor Synergy:** The "TTC Trigger Only" baseline fails to anticipate complex dynamics. The Full Stack relies on the ML model's contextual understanding, while the "Supervisor Force" acts as a kinematic safety net when the ML model hesitates (removing it increases collisions from 69 to 73). 
 
 ## Instructions
 
