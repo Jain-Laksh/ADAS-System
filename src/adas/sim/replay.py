@@ -101,11 +101,22 @@ def run_replay(
         f_a_lead = state[2]
         f_lead_speed = ego.v + f_vrel
 
+        log.time.append(t)
+        log.ego_x.append(ego.x)
+        log.ego_v.append(ego.v)
+        log.ego_a.append(ego.a_actual)
+        log.lead_x.append(lx)
+        log.lead_v.append(lv)
+        log.gap.append(true_gap)
+        log.filtered_gap.append(f_gap)
+        log.filtered_vrel.append(f_vrel)
+        log.filtered_a_lead.append(f_a_lead)
+
         ttc = compute_ttc(f_gap, f_vrel)
 
         risk = 0.0
         if risk_fn is not None:
-            risk = risk_fn(i)
+            risk = risk_fn(log, i)
 
         sup_force = False
         sup_veto = False
@@ -141,16 +152,6 @@ def run_replay(
 
         ego.step(applied)
 
-        log.time.append(t)
-        log.ego_x.append(ego.x)
-        log.ego_v.append(ego.v)
-        log.ego_a.append(ego.a_actual)
-        log.lead_x.append(lx)
-        log.lead_v.append(lv)
-        log.gap.append(true_gap)
-        log.filtered_gap.append(f_gap)
-        log.filtered_vrel.append(f_vrel)
-        log.filtered_a_lead.append(f_a_lead)
         log.ttc.append(ttc)
         log.aeb_state.append(aeb_state_str)
         log.acc_cmd.append(acc_cmd)
