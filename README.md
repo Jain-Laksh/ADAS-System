@@ -2,25 +2,9 @@
 
 A Python project that replays real highway trajectories through a Kalman-filter tracker, an MPC-based ACC, and a state-machine AEB whose ML trigger is conformally calibrated to a bounded false-activation rate. 
 
-## Dataset Details (NGSIM US-101)
-
-This project utilizes the public NGSIM (Next Generation SIMulation) US-101 dataset, which contains detailed vehicle trajectory data recorded on the US-101 highway in Los Angeles, California. The data provides high-resolution (10 Hz) vehicle positions and dynamics.
-
-### Raw Data Attributes
-The raw dataset (`trajectories-0750am-0805am.txt`) contains millions of rows representing 15 minutes of traffic. Key columns utilized include:
-* `Vehicle_ID`: Unique identifier for the ego vehicle.
-* `Frame_ID`: Sequential timestamp identifier (10 Hz = 0.1s dt).
-* `Local_X` / `Local_Y`: Vehicle position in the local coordinate system (converted from feet to meters).
-* `v_Length`: Physical length of the vehicle.
-* `v_Vel` / `v_Acc`: Speed and acceleration.
-* `Preceding`: The `Vehicle_ID` of the lead vehicle directly ahead in the same lane.
-
-### Preprocessing
-The data pipeline extracts continuous segments where the leader and follower stay unchanged for at least 20 seconds. It calculates the bumper-to-bumper gap by comparing the follower's `Local_Y`, the leader's `Local_Y`, and the leader's `v_Length`. Signals are smoothed using a Savitzky-Golay filter to remove noise artifacts typical in the raw NGSIM tracking algorithm.
-
 ## Overview
 
-The project covers both ACC (Adaptive Cruise Control) and AEB (Autonomous Emergency Braking), adding a machine learning component for risk prediction alongside mathematical safety supervisors. It operates entirely on a laptop CPU using the public NGSIM dataset (offline log replay).
+The project covers both ACC (Adaptive Cruise Control) and AEB (Autonomous Emergency Braking), with machine learning based approach for risk prediction alongside mathematical safety supervisors.
 
 ### Requirements Met
 * **Control System Development:** MPC-based ACC with acceleration/jerk limits and speed-dependent time gaps.
