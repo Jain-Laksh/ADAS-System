@@ -1,0 +1,6 @@
+mode,stress_collisions,stress_mean_min_gap
+full_stack,69,1.9166514921194562
+no_supervisor_force,73,2.313479231196728
+no_supervisor_veto,69,1.9166514921194562
+ttc_trigger_only,141,-12.934741100743757
+no_aeb,141,-12.934836921372543
